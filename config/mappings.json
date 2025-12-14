@@ -1,50 +1,101 @@
 ﻿{
+  "Firewall Disabled": {
+    "MITRE": [],
+    "NIST": ["SC-7"],
+    "CIS": ["9.1.1"],
+    "Remediation": "Enable Windows Defender Firewall for all profiles and manage it centrally via Group Policy."
+  },
+  "Firewall Enabled": {
+    "MITRE": [],
+    "NIST": ["SC-7"],
+    "CIS": ["9.1.1"],
+    "Remediation": "No action required."
+  },
+
   "RDP Enabled": {
     "MITRE": ["T1021.001"],
     "NIST": ["AC-17"],
     "CIS": ["9.2.1"],
-    "Remediation": "Disable RDP if not required. If required, restrict access (VPN/Jump host), enforce NLA, and limit by firewall scope."
+    "Remediation": "Disable RDP if not required. If required, restrict access, enforce NLA, and limit firewall scope."
+  },
+  "RDP Disabled": {
+    "MITRE": [],
+    "NIST": ["AC-17"],
+    "CIS": ["9.2.1"],
+    "Remediation": "No action required."
   },
   "RDP NLA Not Required": {
     "MITRE": ["T1021.001"],
     "NIST": ["AC-17"],
     "CIS": ["9.2.2"],
-    "Remediation": "Require Network Level Authentication (NLA) for RDP connections."
+    "Remediation": "Require Network Level Authentication (NLA) for all RDP connections."
   },
+  "RDP NLA Required": {
+    "MITRE": [],
+    "NIST": ["AC-17"],
+    "CIS": ["9.2.2"],
+    "Remediation": "No action required."
+  },
+
   "SMBv1 Enabled": {
     "MITRE": ["T1021.002"],
     "NIST": ["CM-7", "SC-7"],
     "CIS": ["18.3.4"],
-    "Remediation": "Disable SMBv1 on all systems. SMBv1 is legacy and increases exposure to lateral movement and wormable attacks."
+    "Remediation": "Disable SMBv1 on all systems. SMBv1 is deprecated and vulnerable to lateral movement attacks."
+  },
+  "SMBv1 Disabled": {
+    "MITRE": [],
+    "NIST": ["CM-7"],
+    "CIS": ["18.3.4"],
+    "Remediation": "No action required."
   },
   "SMB Signing Not Required (Server)": {
     "MITRE": ["T1021.002"],
     "NIST": ["IA-7", "SC-8"],
     "CIS": ["18.3.3"],
-    "Remediation": "Require SMB signing on servers via Group Policy / security options."
+    "Remediation": "Require SMB signing on servers via Group Policy."
+  },
+  "SMB Signing Required (Server)": {
+    "MITRE": [],
+    "NIST": ["IA-7"],
+    "CIS": ["18.3.3"],
+    "Remediation": "No action required."
   },
   "SMB Signing Not Required (Client)": {
     "MITRE": ["T1021.002"],
     "NIST": ["IA-7", "SC-8"],
     "CIS": ["18.3.3"],
-    "Remediation": "Require SMB signing on clients via Group Policy / security options."
+    "Remediation": "Require SMB signing on clients via Group Policy."
   },
-  "Firewall Disabled": {
+  "SMB Signing Required (Client)": {
     "MITRE": [],
-    "NIST": ["SC-7"],
-    "CIS": ["9.1.1"],
-    "Remediation": "Enable Windows Defender Firewall for all profiles and manage consistently via Group Policy."
+    "NIST": ["IA-7"],
+    "CIS": ["18.3.3"],
+    "Remediation": "No action required."
   },
+
   "Defender Real-time Protection Disabled": {
     "MITRE": [],
     "NIST": ["SI-3"],
     "CIS": ["10.1.1"],
-    "Remediation": "Enable real-time protection and ensure Defender is managed/enforced by policy."
+    "Remediation": "Enable real-time protection and ensure Defender is managed and enforced by policy."
+  },
+  "Defender Real-time Protection Enabled": {
+    "MITRE": [],
+    "NIST": ["SI-3"],
+    "CIS": ["10.1.1"],
+    "Remediation": "No action required."
   },
   "Defender Antivirus Disabled": {
     "MITRE": [],
     "NIST": ["SI-3"],
     "CIS": ["10.1.1"],
-    "Remediation": "Ensure an approved antivirus solution is enabled and reporting healthy status."
+    "Remediation": "Ensure an approved antivirus solution is enabled and healthy."
+  },
+  "Defender Antivirus Enabled": {
+    "MITRE": [],
+    "NIST": ["SI-3"],
+    "CIS": ["10.1.1"],
+    "Remediation": "No action required."
   }
 }
