@@ -1,0 +1,4 @@
+@"
+output/*
+!output/.gitkeep
+"@ | Out-File -Encoding utf8 .gitignore
