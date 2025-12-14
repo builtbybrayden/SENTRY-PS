@@ -7,6 +7,8 @@ param(
     [string]$CompareBaseline
 )
 
+$SentryVersion = "1.0.0"
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
@@ -28,41 +30,62 @@ function New-Delta {
         [Parameter(Mandatory)]$Current
     )
 
-    # Identity key: CheckName + Finding + Profile (if present)
-    $key = {
+    # Identity key generator
+    $keyFunc = {
         param($x)
-        $p = if ($null -ne $x.Profile -and "$($x.Profile)".Length -gt 0) { $x.Profile } else { "" }
+        $p =
+    if ($x.PSObject.Properties.Name -contains "Profile" -and
+        $null -ne $x.Profile -and
+        "$($x.Profile)".Length -gt 0) {
+        $x.Profile
+    } else {
+        ""
+    }
         "$($x.Host)|$($x.CheckName)|$($x.Finding)|$p"
     }
 
     $bMap = @{}
-    foreach ($b in $Baseline) { $bMap[&$key $b] = $b }
+    foreach ($b in $Baseline) {
+        $k = & $keyFunc $b
+        $bMap[$k] = $b
+    }
 
     $cMap = @{}
-    foreach ($c in $Current) { $cMap[&$key $c] = $c }
+    foreach ($c in $Current) {
+        $k = & $keyFunc $c
+        $cMap[$k] = $c
+    }
 
     $added   = @()
     $removed = @()
     $changed = @()
 
     foreach ($k in $cMap.Keys) {
-        if (-not $bMap.ContainsKey($k)) { $added += $cMap[$k]; continue }
+        if (-not $bMap.ContainsKey($k)) {
+            $added += $cMap[$k]
+            continue
+        }
 
         $b = $bMap[$k]
         $c = $cMap[$k]
 
-        # Compare a few important fields
-        if ($b.Severity -ne $c.Severity -or $b.RiskScore -ne $c.RiskScore -or $b.Evidence -ne $c.Evidence) {
+        if (
+            $b.Severity  -ne $c.Severity -or
+            $b.RiskScore -ne $c.RiskScore -or
+            $b.Evidence  -ne $c.Evidence
+        ) {
             $changed += [PSCustomObject]@{
-                Key       = $k
-                Before    = $b
-                After     = $c
+                Key    = $k
+                Before = $b
+                After  = $c
             }
         }
     }
 
     foreach ($k in $bMap.Keys) {
-        if (-not $cMap.ContainsKey($k)) { $removed += $bMap[$k] }
+        if (-not $cMap.ContainsKey($k)) {
+            $removed += $bMap[$k]
+        }
     }
 
     [PSCustomObject]@{
@@ -72,39 +95,145 @@ function New-Delta {
     }
 }
 
+function Convert-MitreToLinks {
+    param(
+        [string]$MitreString
+    )
+
+    if ([string]::IsNullOrWhiteSpace($MitreString)) {
+        return ""
+    }
+
+    $links = foreach ($tech in ($MitreString -split ",")) {
+        $t = $tech.Trim()
+
+        # Handle sub-techniques (Txxxx.yyy)
+        if ($t -match "^T\d{4}\.\d{3}$") {
+            $base = $t.Split(".")[0]
+            "<a href='https://attack.mitre.org/techniques/$($base.Substring(1))/$($t.Split(".")[1])/' target='_blank'>$t</a>"
+        }
+        elseif ($t -match "^T\d{4}$") {
+            "<a href='https://attack.mitre.org/techniques/$($t.Substring(1))/' target='_blank'>$t</a>"
+        }
+        else {
+            $t
+        }
+    }
+
+    $links -join ", "
+}
+
+function ConvertFrom-HtmlEncoded {
+    param([string]$Html)
+
+    Add-Type -AssemblyName System.Web
+    return [System.Web.HttpUtility]::HtmlDecode($Html)
+}
+
 function ConvertTo-SentryHtml {
     param(
         [Parameter(Mandatory)]$Results
     )
 
-    $total = $Results.Count
-    $bySev = $Results | Group-Object Severity | Sort-Object Name
+    # Normalize
+    $Results = @($Results)
 
-    $summaryRows = foreach ($g in $bySev) {
-        [PSCustomObject]@{ Severity = $g.Name; Count = $g.Count }
-    }
+    # --- Safe counts ---
+    $total = ($Results | Measure-Object).Count
 
-    $top = $Results | Sort-Object RiskScore -Descending | Select-Object -First 10
+    $mitreMapped = ($Results | Where-Object {
+        $_.PSObject.Properties.Name -contains "MITRE" -and
+        -not [string]::IsNullOrWhiteSpace($_.MITRE)
+    } | Measure-Object).Count
 
-    $grouped = $Results | Group-Object CheckName | Sort-Object Name
+    $nistMapped = ($Results | Where-Object {
+        $_.PSObject.Properties.Name -contains "NIST" -and
+        -not [string]::IsNullOrWhiteSpace($_.NIST)
+    } | Measure-Object).Count
 
+    $cisMapped = ($Results | Where-Object {
+        $_.PSObject.Properties.Name -contains "CIS" -and
+        -not [string]::IsNullOrWhiteSpace($_.CIS)
+    } | Measure-Object).Count
+
+    $coverage = @(
+        [PSCustomObject]@{
+            Framework = "MITRE ATT&CK"
+            Mapped    = $mitreMapped
+            Total     = $total
+            Coverage  = "{0:P0}" -f ($mitreMapped / [Math]::Max(1, $total))
+        },
+        [PSCustomObject]@{
+            Framework = "NIST SP 800-53"
+            Mapped    = $nistMapped
+            Total     = $total
+            Coverage  = "{0:P0}" -f ($nistMapped / [Math]::Max(1, $total))
+        },
+        [PSCustomObject]@{
+            Framework = "CIS Benchmarks"
+            Mapped    = $cisMapped
+            Total     = $total
+            Coverage  = "{0:P0}" -f ($cisMapped / [Math]::Max(1, $total))
+        }
+    )
+
+    # --- Severity summary (safe) ---
+    $summaryRows =
+        $Results |
+        Group-Object Severity |
+        Sort-Object Name |
+        ForEach-Object {
+            [PSCustomObject]@{
+                Severity = $_.Name
+                Count    = $_.Group.Count
+            }
+        }
+
+    $top =
+        $Results |
+        Sort-Object RiskScore -Descending |
+        Select-Object -First 10
+
+    $grouped =
+        $Results |
+        Group-Object CheckName |
+        Sort-Object Name
+
+    # --- HTML ---
     $html = @()
-    $html += "<h1>SENTRY-PS Security Report</h1>"
-    $html += "<p><b>Host:</b> $($env:COMPUTERNAME) <br/><b>Generated:</b> $(Get-Date)</p>"
+    $html += "<h1>SENTRY-PS Security Report (v$SentryVersion)</h1>"
+    $html += "<p><b>Host:</b> $($env:COMPUTERNAME)<br/><b>Generated:</b> $(Get-Date)</p>"
+
     $html += "<h2>Summary</h2>"
     $html += ($summaryRows | ConvertTo-Html -Fragment)
+
+    $html += "<h2>Framework Coverage</h2>"
+    $html += ($coverage | ConvertTo-Html -Fragment)
+
     $html += "<p><b>Total Findings:</b> $total</p>"
 
     $html += "<h2>Top Risks</h2>"
-    $html += ($top | Select-Object Timestamp, Severity, RiskScore, Finding, CheckName, Evidence, MITRE, NIST, CIS |
-        ConvertTo-Html -Fragment)
+    $topHtml =
+        $top |
+        Select-Object Timestamp, Severity, RiskScore, Finding, CheckName, Evidence,
+            @{ Name = "MITRE"; Expression = { Convert-MitreToLinks $_.MITRE } },
+            NIST, CIS |
+        ConvertTo-Html -Fragment
+
+    $html += ConvertFrom-HtmlEncoded $topHtml
+
 
     foreach ($g in $grouped) {
         $html += "<h2>$($g.Name)</h2>"
-        $html += ($g.Group |
-            Sort-Object RiskScore -Descending |
-            Select-Object Timestamp, Severity, RiskScore, Finding, Evidence, MITRE, NIST, CIS, Remediation, Profile, Enabled |
-            ConvertTo-Html -Fragment)
+        $groupHtml =
+        $g.Group |
+        Sort-Object RiskScore -Descending |
+        Select-Object Timestamp, Severity, RiskScore, Finding, Evidence,
+            @{ Name = "MITRE"; Expression = { Convert-MitreToLinks $_.MITRE } },
+            NIST, CIS, Remediation, Profile, Enabled |
+        ConvertTo-Html -Fragment
+
+    $html += ConvertFrom-HtmlEncoded $groupHtml
     }
 
     ($html -join "`n")
@@ -139,7 +268,12 @@ $results = foreach ($f in $rawFindings) {
     }
 
     $sevWeight = Get-SeverityWeight -RiskMatrix $riskMatrix -Severity $f.Severity
-    $confidence = if ($null -ne $f.Confidence) { [double]$f.Confidence } else { [double]$riskMatrix.default_confidence }
+    $confidence =
+    if ($f.PSObject.Properties.Name -contains "Confidence") {
+        [double]$f.Confidence
+    } else {
+        [double]$riskMatrix.default_confidence
+    }
 
     $riskScore = [Math]::Round(($sevWeight * $confidence), 2)
 
@@ -156,8 +290,22 @@ $results = foreach ($f in $rawFindings) {
         NIST        = if ($map) { ($map.NIST -join ",") } else { "" }
         CIS         = if ($map) { ($map.CIS -join ",") } else { "" }
         Remediation = if ($map) { $map.Remediation } else { "" }
-        Profile     = $f.Profile
-        Enabled     = $f.Enabled
+        Profile =
+            if ($f.PSObject.Properties.Name -contains "Profile") {
+                $f.Profile
+            } else {
+                ""
+            }
+
+        Enabled =
+            if ($f.PSObject.Properties.Name -contains "Enabled") {
+                $f.Enabled
+            } else {
+                $null
+            }
+    }
+    if (-not $map) {
+        Write-Verbose "No framework mapping found for finding: $($f.Finding)"
     }
 }
 
@@ -197,3 +345,4 @@ if (-not $NoHtml) {
 Write-Host "JSON: $jsonPath"
 Write-Host "CSV : $csvPath"
 Write-Host "Done."
+Write-Host "SENTRY-PS version $SentryVersion"
