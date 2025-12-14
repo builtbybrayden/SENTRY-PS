@@ -47,6 +47,7 @@ It is designed to be **read-only**, modular, and framework-aligned, making it su
 git clone https://github.com/builtbybrayden/SENTRY-PS.git
 cd SENTRY-PS
 .\sentry.ps1
+```
 
 ---
 
@@ -56,13 +57,13 @@ Save a baseline:
 
 ```powershell
 .\sentry.ps1 -SaveBaseline
-
+```
 
 Compare against a previous baseline:
 
 ```powershell
 .\sentry.ps1 -CompareBaseline .\output\baseline.json
-
+```
 
 This highlights:
 
