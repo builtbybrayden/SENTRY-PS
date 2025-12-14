@@ -1,0 +1,28 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : ---
+                    title: MIT License
+                    spdx-id: MIT
+                    featured: true
+                    hidden: false
+                    
+                    description: A short and simple permissive license with conditions only requiring preservation of copyright and license notices. Licen...
+RawContent        : HTTP/1.1 200 OK
+                    Connection: keep-alive
+                    Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox
+                    Strict-Transport-Security: max-age=31536000
+                    X-Content-Type-Options: nosniff
+                    ...
+Forms             : {}
+Headers           : {[Connection, keep-alive], [Content-Security-Policy, default-src 'none'; style-src 'unsafe-inline'; sandbox], [Strict-Transport-Security, max-age=31536000], 
+                    [X-Content-Type-Options, nosniff]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 1989
+
+
+
